@@ -13,8 +13,8 @@ class TestFlickrFunctions(unittest.TestCase):
         
         myflickrupload.testexecution = True
         
-        localset = myflickrupload.myGetLocalSets("C:\\Users\\mark.welsh\\Personal\\Flickr\\TestWork\\testdata")
-        localflickrset = myflickrupload.myGetLocalSets("C:\\Users\\mark.welsh\\Personal\\Flickr\\TestWork\\testdataflickr")
+        localset = myflickrupload.myGetLocalSets("..\\test\\testdata")
+        localflickrset = myflickrupload.myGetLocalSets("..\test\\testdataflickr")
         testsetdelta = myflickrupload.myFindMissingPhotoObjects(localset, localflickrset)
 
         testdelta = ["test1", "test2"]
