@@ -89,9 +89,11 @@ class LocalPhotoset(object):
     def __str__(self):
         return '<Flickr Photoset %s>' % self.id
 
-# TODO: This is a big problem. Cannot recursively search in this manner, need to set the base set correctly.
-    def getPhotos(self, enteredset=[], root=""):
+    def getPhotos(self, enteredset=None, root=""):
         """Returns list of Photos."""                
+ 
+        if enteredset is None:
+            enteredset = []
         
         # Create the full path from the possibly recursive root variabl passed in, this extends the set's root path
         fullpath = os.path.join(self.fullname, root)
@@ -103,7 +105,7 @@ class LocalPhotoset(object):
             
             if os.path.isfile(fullname):
                 if photo.lower().endswith("jpg"):
-                    # Git rid of any slashes in the root path variable and concatonate the string name
+                    # Get rid of any slashes in the root path variable and concatonate the string name
                     shortname = root.replace("\\", "") + photo.lower().strip(".jpg")                    
                     enteredset.append(Photo(i, shortname, fullname))
             else:
@@ -142,9 +144,9 @@ def myGetLocalSets(path):
 def myGetFlickrSets():
     flickr.AUTH=True;
     me = flickr.User(myflickrinfo.FLICKRUSER)
-    mysets = []
     
     try:
+        mysets = []
         mysets = me.getPhotosets()
     except IOError, error:
         print "Flickr IOError: %s" % error
@@ -153,33 +155,21 @@ def myGetFlickrSets():
     return mysets 
 
 
-def myGetFlickrSetPhotos(myset):
-    flickr.AUTH=True;
-
-    try:
-        myset.getPhotos()
-    except IOError, error:
-        print "Flickr IOError: %s" % error
-        exit()
-
-    return myset
-  
 def myGetSetPhotos(myset):
     flickr.AUTH=True;
 
     try:
         setphotos = []
-# TODO: This is a big problem. Cannot recursively search in this manner, need to set the base set correctly.
-        setphotos = myset.getPhotos(setphotos)
-        for image in setphotos:
-            print "Image Name: ", image.title
-               
+        setphotos = myset.getPhotos()
     except IOError, error:
         print "Flickr IOError: %s" % error
         exit()
 
     return setphotos
 
+
+def myGetFlickrSetPhotos(myset):
+    return myGetSetPhotos(myset)
 
     
 def myFindMissingPhotoObjects(local_photosets, flickr_photosets):
@@ -265,19 +255,11 @@ def myUtilOutputPhotos(myphoto):
         
     return
 
-                
-
 def main():
-    usage = "usage: %prog [options]"
-    
     flickr.API_KEY = myflickrinfo.API_KEY
     flickr.API_SECRET = myflickrinfo.API_SECRET
-    
-    myflickr_photosets = myGetFlickrSets()
-    print "My flickr Sets:"
-    myUtilOutputSets(myflickr_photosets)
-    return
-    
+
+    usage = "usage: %prog [options]"
     # TODO: Fix the version substitution"
     parser = OptionParser(usage, version="%prog %__version__", prog = "myflickrupload.py")
     parser.add_option("-a", "--authorize", action="store_true", dest="authorize", default=False, help="Authorize the application")
@@ -285,8 +267,30 @@ def main():
     parser.add_option("-i", "--imagediff", action="store_true", dest="imagediff", default=False, help="Display photo differences for specified set")
     parser.add_option("-c", "--confirm", action="store_true", dest="confirm", default=True, help="Confirm creation of delta set and / or upload of image")
     parser.add_option("-p", "--path", action="store", dest="path", help="Local image path")
-    parser.add_option("-s", "--service", action="store", dest="service", help="Run as a service")
     (options, args) = parser.parse_args()
+    
+#    mylocal_photosets = myGetLocalSets(options.path)
+#    for localset in mylocal_photosets:
+#        photos = myGetSetPhotos(localset)
+#        print "Set: ", localset.title
+#        print "Fullname: ", localset.fullname
+#        for image in photos:
+#            print image.title
+#        print "\n\n"
+#
+#    return
+    flickrsets = myGetFlickrSets()
+    print "Output flickr sets:"
+    myUtilOutputSets(flickrsets)
+    
+    for flickrset in flickrsets:
+        flickrphotos = myGetFlickrSetPhotos(flickrset)
+        print ""
+        for photo in flickrphotos:
+            print photo.title
+    
+    return
+    
     
     # Rules are either:
     #    authorize 
@@ -320,9 +324,6 @@ def main():
 #            for image in photos:
 #                print image.title
     
-    #if options.service:
-        # TODO: Add something here to create the process
-
     if options.imagediff:
         # TODO: Display the image deltas between the specific local set and the flickr set
         print "Display set image deltas."
@@ -342,34 +343,3 @@ if __name__ == '__main__':
 # TODO: Add something to fork a new process / thread to effectively get a service running
 
 
-def testfunc ():    
-    
-    i = 0
-    testlistouter = ["misc", "test", "test1", "test2"]
-    testlistinner = ["misc", "test", "test2", "test3"]
-
-    # Take a copy of the lists
-    mylistinner = testlistinner[:]
-    mylistouter = testlistouter[:]
-
-    print "Inner = %s " % mylistinner
-    print "Outer = %s " % mylistouter
-    print ""
-    
-    for listitemouter in mylistouter[:]:
-        print "Trying outer: %s" %listitemouter
-        match = False;
-        for listiteminner in mylistinner[:]:
-            print "Trying inner: %s" %listiteminner
-            if listiteminner == listitemouter:
-                print "Found match: %s " % listiteminner
-                mylistinner.remove(listiteminner)                      
-                mylistouter.remove(listitemouter)                      
-                break
-
-    print ""
-    print "Inner = %s " % mylistinner
-    print "Outer = %s " % mylistouter
-    print ""
-
-    return
