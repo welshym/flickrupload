@@ -142,7 +142,7 @@ def myGetLocalSets(path):
       
         
 def myGetFlickrSets():
-    flickr.AUTH=True;
+    flickr.AUTH=True    
     me = flickr.User(myflickrinfo.FLICKRUSER)
     
     try:
@@ -255,9 +255,20 @@ def myUtilOutputPhotos(myphoto):
         
     return
 
+def myAuthenticated():
+    try:
+        flickr.User(myflickrinfo.FLICKRUSER).getPhotosets()
+    except IOError:
+        return False
+    
+    return True
+
+
 def main():
     flickr.API_KEY = myflickrinfo.API_KEY
     flickr.API_SECRET = myflickrinfo.API_SECRET
+
+    print myAuthenticated()
 
     usage = "usage: %prog [options]"
     # TODO: Fix the version substitution"
@@ -268,29 +279,6 @@ def main():
     parser.add_option("-c", "--confirm", action="store_true", dest="confirm", default=True, help="Confirm creation of delta set and / or upload of image")
     parser.add_option("-p", "--path", action="store", dest="path", help="Local image path")
     (options, args) = parser.parse_args()
-    
-#    mylocal_photosets = myGetLocalSets(options.path)
-#    for localset in mylocal_photosets:
-#        photos = myGetSetPhotos(localset)
-#        print "Set: ", localset.title
-#        print "Fullname: ", localset.fullname
-#        for image in photos:
-#            print image.title
-#        print "\n\n"
-#
-#    return
-    flickrsets = myGetFlickrSets()
-    print "Output flickr sets:"
-    myUtilOutputSets(flickrsets)
-    
-    for flickrset in flickrsets:
-        flickrphotos = myGetFlickrSetPhotos(flickrset)
-        print ""
-        for photo in flickrphotos:
-            print photo.title
-    
-    return
-    
     
     # Rules are either:
     #    authorize 
@@ -334,12 +322,11 @@ if __name__ == '__main__':
     main()
     
     
-# TODO: Need to look at the implementation in the test function to see if the result that looks correct actually is.
 # TODO: Need to add the "misc" exception everywhere its needed for photos in the root folder
 # TODO: Start fixing Flickr error captures to prevent the crash
-# TODO: Add a test mode to allow local execution and comparison. Target the local filesystem with varying flickr sets and content
 # TODO: Add some code to check for authorization. If not authenticated try to perform an authentication, if that fails exit with a suitable error.
 # TODO: Instead of the item above, maybe add an authorization mode and drive the execution from a command line option and use the earlier error to drive appropriately.
-# TODO: Add something to fork a new process / thread to effectively get a service running
 
 
+# TO REVIEW: What is a frob
+# TO REVIEW: How the frob is used
