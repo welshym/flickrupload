@@ -589,7 +589,7 @@ class User(object):
                        primary_photo_id=photo.id)
 
         if not data.rsp.stat == 'ok':
-            return sets
+            return set
                        
         set = Photoset(data.rsp.photoset.id, title, Photo(photo.id),
                        photos=1, description=description)

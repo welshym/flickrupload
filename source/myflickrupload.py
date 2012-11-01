@@ -28,21 +28,21 @@ def myAuthorization(myAuth=flickr.Auth()):
     try:
         frob = myAuth.getFrob()
     except IOError:
-        print "Flickr Authentication Error: Frob"
+        print "ERROR: Flickr Authentication error, Frob."
         exit()
     
     link = myAuth.loginLink(permission, frob)
     browser = webbrowser.get()
     browser.open(link)
     
-    print "Enable authorization through the Web Browser. Hit enter once complete."
+    print "INFO: Enable authorization through the Web Browser. Hit enter once complete."
     raw_input()
     
     # Get and store the token
     try:
         token = myAuth.getToken(frob)
     except IOError:
-        print "Flickr Authentication Error: Token"
+        print "ERROR: Flickr Authentication, Token."
         exit()
 
     f = file('token.txt','w')
@@ -136,7 +136,7 @@ def myGetLocalSets(path):
                 source_sets.append(LocalPhotoset(i, "misc", path))
     
     else:
-        print "Path is not a known directory."
+        print "INFO: Path is not a known directory."
     
     return source_sets
       
@@ -149,7 +149,7 @@ def myGetFlickrSets():
         mysets = []
         mysets = me.getPhotosets()
     except IOError, error:
-        print "Flickr IOError: %s" % error
+        print "ERROR: Flickr IOError: %s" % error
         exit()
         
     return mysets 
@@ -162,7 +162,7 @@ def myGetSetPhotos(myset):
         setphotos = []
         setphotos = myset.getPhotos()
     except IOError, error:
-        print "Flickr IOError: %s" % error
+        print "ERROR: Flickr IOError: %s" % error
         exit()
 
     return setphotos
@@ -191,33 +191,43 @@ def myFindMissingPhotoObjects(local_photosets, flickr_photosets):
     return templocal_photosets
     
     
-def myAddMissingPhotoSet(photoset_delta):
+def myAddMissingPhotoSet(photoset_delta, confirmupload):
+    """ Adds the set and all the photos it contains """
+    testexecution = True
+    
     me = flickr.User(myflickrinfo.FLICKRUSER)
 
-    for missing_set in photoset_delta:      
-        print missing_set.title
-    
     for missing_set in photoset_delta:  
-        print "Missing set is ", missing_set.title
         mylocal_photos = missing_set.getPhotos()
-        
-        print "Adding set: ", missing_set.title
-        print "Missing photos:"
-        print ""
         
         create_set = True
         for missing_photo in mylocal_photos:
-            print missing_photo.title
-            try:
-                photo = flickrupload.upload(filename=missing_photo.fullname, title=missing_photo.title.rstrip('.JPG'))
-            except FlickrError:
-                print "ERROR FOUND:"
-            else:
+            
+            if confirmupload == True:
+                print "Do you wish to upload: ", missing_photo.title
+                # TODO: Get at the command input
+                skip = raw_input()
+            if skip == 'Y' | skip == 'y':            
+                print "Adding: ", missing_photo.title
+                try:
+                    if testexecution == True:
+                        photo = missing_photo
+                    else:
+                        photo = flickrupload.upload(filename=missing_photo.fullname, title=missing_photo.title.rstrip('.JPG'))
+                except FlickrError:
+                    print "ERROR FOUND:"                
+        
                 if create_set == True:
-                    newphotoset = me.createPhotoset(photo, missing_set.title)
+                    print "Creating set: ", missing_set
+                    if testexecution == False:
+                        newphotoset = me.createPhotoset(photo, missing_set.title)
+                    else:
+                        print "Creating set: ", missing_set
+                        newphotoset = LocalPhotoset(0, missing_set.title, missing_set.title)
                     create_set = False
                 else:
-                    newphotoset.addPhoto(photo)
+                    if testexecution == False:
+                        newphotoset.addPhoto(photo)
 
 
 def myAddMissingPhotos(local_photosets, flickr_photosets):
@@ -268,8 +278,6 @@ def main():
     flickr.API_KEY = myflickrinfo.API_KEY
     flickr.API_SECRET = myflickrinfo.API_SECRET
 
-    print myAuthenticated()
-
     usage = "usage: %prog [options]"
     # TODO: Fix the version substitution"
     parser = OptionParser(usage, version="%prog %__version__", prog = "myflickrupload.py")
@@ -278,45 +286,70 @@ def main():
     parser.add_option("-i", "--imagediff", action="store_true", dest="imagediff", default=False, help="Display photo differences for specified set")
     parser.add_option("-c", "--confirm", action="store_true", dest="confirm", default=True, help="Confirm creation of delta set and / or upload of image")
     parser.add_option("-p", "--path", action="store", dest="path", help="Local image path")
+    parser.add_option("-u", "--upload", action="store_true", dest="upload", default=True, help="Upload the image deltas.")
     (options, args) = parser.parse_args()
     
     # Rules are either:
     #    authorize 
     # Or
     #    -p <path> and -i or -s
-    if (    ((options.authorize == False) & (options.path == None))  |  
-            ((options.setdiff == False) & (options.imagediff == False) & (options.path != None))
+    
+    print "options.upload: ", options.upload
+    if (    ((options.authorize == False) & (options.path == None))  | 
+            ((options.path != None) & (options.setdiff == False) & (options.imagediff == False) & (options.upload == False))
         ):
         parser.error("incorrect number of arguments")
 
     if options.authorize:
-        print "Authorize application."
+        print "ACTION: Authorize application."
         myAuthorization()
     
     if options.setdiff:
-        # TODO: Display the set deltas between the local sets and the flickr sets 
-        print "Display set deltas."
-        mylocal_photosets = myGetLocalSets(options.path)
-        myflickr_photosets = myGetFlickrSets()
-        setdelta = myFindMissingPhotoObjects(mylocal_photosets, myflickr_photosets)
-        myUtilOutputSets(setdelta)
+        print "ACTION: Display set deltas."
         
-        for localset in mylocal_photosets:
-            print ""
-            print ""
-            print "Set: ", localset.title
-            photos = myGetSetPhotos(localset)
-#            print "\n\n"
-#            print "Set: ", localset.title
-#            print "Fullname: ", localset.fullname
-#            for image in photos:
-#                print image.title
+        if myAuthenticated() == False:
+            print "INFO: Not authenticated, starting the authentication process."
+            #myAuthorization()
+
+        mylocal_photosets = myGetLocalSets(options.path)
+#        myflickr_photosets = myGetFlickrSets()
+        myflickr_photosets = myGetLocalSets(os.path.abspath(os.path.join(os.getcwd(), '..', 'test\\testdataflickr')))
+        setdelta = myFindMissingPhotoObjects(mylocal_photosets, myflickr_photosets)
+        
+        for localsetdiff in setdelta:
+            print "Set: ", localsetdiff.title
     
     if options.imagediff:
         # TODO: Display the image deltas between the specific local set and the flickr set
-        print "Display set image deltas."
+        print "ACTION: Display set image deltas."
 
+    if options.upload:
+        print "ACTION: Upload deltas."
+                
+        if myAuthenticated() == False:
+            print "INFO: Not authenticated, starting the authentication process."
+            #myAuthorization()
 
+        mylocal_photosets = myGetLocalSets(options.path)
+#        myflickr_photosets = myGetFlickrSets()
+        myflickr_photosets = myGetLocalSets(os.path.abspath(os.path.join(os.getcwd(), '..', 'test\\testdataflickr')))
+        setdelta = myFindMissingPhotoObjects(mylocal_photosets, myflickr_photosets)
+        
+        for localset in mylocal_photosets:
+            if localset not in setdelta: # What are the photo deltas
+#                print "Set: ", localset.title
+                localphotos = localset.getPhotos()
+                
+                for flickrset in myflickr_photosets:
+                    if flickrset.title == localset.title:
+#                        print "Found matching set: ", flickrset.title
+                        flickrphotos = flickrset.getPhotos()
+                        
+                        imagedelta = myFindMissingPhotoObjects(localphotos, flickrphotos)
+#                        for image in imagedelta:
+#                            print "Image Delta: ", image.title
+        
+        myAddMissingPhotoSet(setdelta, options.confirm)
 
 if __name__ == '__main__':    
     main()
@@ -324,9 +357,8 @@ if __name__ == '__main__':
     
 # TODO: Need to add the "misc" exception everywhere its needed for photos in the root folder
 # TODO: Start fixing Flickr error captures to prevent the crash
-# TODO: Add some code to check for authorization. If not authenticated try to perform an authentication, if that fails exit with a suitable error.
-# TODO: Instead of the item above, maybe add an authorization mode and drive the execution from a command line option and use the earlier error to drive appropriately.
-
+# TODO: Check for memory leaks and fix.
+# TODO: Add a UI. But make it command line driven so the tool can be run headless.
 
 # TO REVIEW: What is a frob
 # TO REVIEW: How the frob is used
