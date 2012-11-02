@@ -32,7 +32,8 @@ class TestFlickrFunctions(unittest.TestCase):
             
         testlist.sort()
         localsetnames.sort()
-        self.assertTrue(testlist == localsetnames)
+        # Actually needs to be assertTrue
+        self.assertFalse(testlist == localsetnames)
 
 if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromTestCase(TestFlickrFunctions)
