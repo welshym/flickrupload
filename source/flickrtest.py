@@ -24,7 +24,13 @@ class TestFlickrFunctions(unittest.TestCase):
     def test_LocalSetSearch(self):
         """Check that the local set search is correct"""
         testlist = ["test", "test1", "test2", "misc"]
-        localset = myflickrupload.myGetLocalSets(os.path.abspath(os.path.join(os.getcwd(), '..', 'test\\testdata')))
+        
+        # Work out where we were called from 
+        path = os.path.abspath(os.path.join(os.getcwd(), '..', 'test\\testdata'))
+        if os.path.isdir(path):
+            localset = myflickrupload.myGetLocalSets(path)
+        else:
+            localset = myflickrupload.myGetLocalSets(os.path.abspath(os.path.join(os.getcwd(), 'test\\testdata')))
         
         localsetnames = []
         for localsetitem in localset:
