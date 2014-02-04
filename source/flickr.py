@@ -29,16 +29,25 @@ from urllib import urlencode, urlopen
 from xml.dom import minidom
 import hashlib
 import os
+import urllib
+import urllib2
+import requests
+import unicodedata
+from cStringIO import StringIO
+
 
 HOST = 'http://flickr.com'
 API = '/services/rest'
 
 # set these here or using flickr.API_KEY in your application
-API_KEY = None
-API_SECRET = None
+#API_KEY = '64634997f046097f624315c4af153170'
+#API_SECRET = '2730a37fb09157bf'
+API_KEY = '3143f37512e051a7ed7c9efdb7d67f06'
+API_SECRET = 'f134ad1ded047275'
 email = None
 password = None
 AUTH = False
+#AUTH = True
 debug = False
 
 # The next 2 variables are only importatnt if authentication is used
@@ -298,6 +307,13 @@ class Photo(object):
         return "http://farm%s.static.flickr.com/%s/%s_%s_%s.jpg" % \
             (self.farm, self.server, self.id, self.secret, size)
         
+    def getOriginal(self): 
+        """
+        Return a string representation of the URL to the original
+        image (not the thumbnail image page).
+        """
+        return self._getDirectURL('o')
+
     def getThumbnail(self): 
         """
         Return a string representation of the URL to the thumbnail
@@ -377,13 +393,15 @@ class Photoset(object):
     
     def getPhotos(self):
         """Returns list of Photos."""
+        
         method = 'flickr.photosets.getPhotos'
         data = _doget(method, photoset_id=self.id)
         photos = data.rsp.photoset.photo
         p = []
-        for photo in photos:
-            p.append(Photo(photo.id, title=photo.title, secret=photo.secret, \
-                           server=photo.server))
+        if hasattr(photos, "isprimary") == False:
+            for photo in photos:
+                p.append(Photo(photo.id, title=photo.title, secret=photo.secret, \
+                               server=photo.server))
         return p    
 
     def editPhotos(self, photos, primary=None):
@@ -551,11 +569,14 @@ class User(object):
     def getPhotosets(self):
         """Returns a list of Photosets."""
         method = 'flickr.photosets.getList'
+        
+#        print "Getting the list"
         data = _doget(method, user_id=self.id)
+#        print "Got the list"
         
         sets = []
         if not getattr(data.rsp.photosets,  'photoset',None):
-            print "No sets"
+#            print "No sets"
             return sets        #N.B. returns an empty set
         if isinstance(data.rsp.photosets.photoset, list):
             for photoset in data.rsp.photosets.photoset:
@@ -589,7 +610,7 @@ class User(object):
                        primary_photo_id=photo.id)
 
         if not data.rsp.stat == 'ok':
-            return set
+            return sets
                        
         set = Photoset(data.rsp.photoset.id, title, Photo(photo.id),
                        photos=1, description=description)
@@ -1104,7 +1125,7 @@ def _doget(method, auth=False, **params):
     #print '_doget going to call _get_auth_url_suffix with asdfasf auth = ',auth
     params = _prepare_params(params)
 	
-    testurl = _get_auth_url_suffix(method, auth, params)
+    #testurl = _get_auth_url_suffix(method, auth, params)
     #print "Test URL = ",testurl
 	
     url = '%s%s/?api_key=%s&method=%s&%s%s'% \
@@ -1112,10 +1133,27 @@ def _doget(method, auth=False, **params):
                   _get_auth_url_suffix(method, auth, params))
 
     #another useful debug print statement
-    if debug:       
-        print "_doget", url
+#    if debug:       
+#        print "_doget", url
+
+#    print urlopen(url)
+#    exit()
+
+#    return _get_data(minidom.parse(urlopen(url)))
+
+#    print "***********************************************************"
+    parameters = {'api_key' : API_KEY, 'method' : method, 'auth_token' : userToken(), 'api_sig' : _get_api_sig(params)}
+    for param in params:
+        parameters[param] = params[param]
+        
+    r = requests.get(HOST + API, params=parameters, verify=False)
     
-    return _get_data(minidom.parse(urlopen(url)))
+#    print "URL = ", r.url
+    xml = unicodedata.normalize('NFKD', r.text).encode('ascii', 'ignore')
+#    print xml
+    data = minidom.parse(StringIO(xml))
+    
+    return _get_data(data)
 
 def _dopost(method, auth=False, **params):
     #uncomment to check you aren't killing the flickr server
@@ -1369,7 +1407,6 @@ class Auth():
         signature_hash = hashlib.md5(sig_str).hexdigest()
         data = _doget(method, auth=False, api_sig=signature_hash, 
                       api_key=API_KEY, frob=frob)
-        
         return data.rsp.auth.token.text
 
 def userToken():

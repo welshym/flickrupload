@@ -8,26 +8,29 @@ import httplib
 import mimetypes
 import flickr
 from xml.dom import minidom
+from poster.encode import multipart_encode
+from poster.streaminghttp import register_openers
+import urllib2             
+import hashlib
              
 #def upload(self, filename, **params):    NOTE: No need to include the self parameter
 def upload(filename, **params):
-        #x = flickr._prepare_params(params)
-        #args['api_key'] = self.__api_key 
-        args = params
         sig = flickr._get_api_sig(params=params)
+        # Register the streaming http handlers with urllib2
+        register_openers()
+        
+        params['api_key'] = flickr.API_KEY
+        params['auth_token'] = flickr.userToken()        
+        params['api_sig'] = sig        
+        params['photo'] = open(filename, 'rb')
+        
+        datagen, headers = multipart_encode(params)
 
-        args['api_key'] = flickr.API_KEY
-        args['api_sig'] = sig
-        args['auth_token'] = flickr.userToken()
-        
-        f = file(filename, 'rb')
-        photo_data = f.read()
-        f.close()
-                        
-        # now make a "files" array to pass to uploader
-        files = [('photo', filename, photo_data)]
-        response = post_multipart('api.flickr.com', '/services/upload/', args, files)
-        
+        url = "http://up.flickr.com" + "/services/upload/"        
+        # Create the Request object
+        request = urllib2.Request(url, datagen, headers)
+        # Actually do the request, and get the response
+        response = urllib2.urlopen(request).read()
         # use get data since error checking is handled by it already
         data = flickr._get_data(minidom.parseString(response))
         photo = flickr.Photo(data.rsp.photoid.text)
@@ -40,7 +43,9 @@ Code for post_multipart, encode_multipart_formdata, and get_content_type taken f
 http://code.activestate.com/recipes/146306-http-client-to-post-using-multipartform-data/
 PSF Licensed code
 """
-                
+
+import requests
+
 def post_multipart(host, selector, fields, files):
     """
     Post fields and files to an http host as multipart/form-data.
@@ -48,15 +53,10 @@ def post_multipart(host, selector, fields, files):
     files is a sequence of (name, filename, value) elements for data to be uploaded as files
     Return the server's response page.
     """
-    content_type, body = encode_multipart_formdata(fields, files)
-    h = httplib.HTTP(host)
-    h.putrequest('POST', selector)
-    h.putheader('content-type', content_type)
-    h.putheader('content-length', str(len(body)))
-    h.endheaders()
-    h.send(body)
-    errcode, errmsg, headers = h.getreply()
-    return h.file.read()
+    print "host + selector", host + selector
+    parameters = {'api_sig' : fields['api_sig'], 'auth_token' : fields['auth_token'], 'api_key' : fields['api_key'], 'title' : fields['title']}
+    r = requests.post("http://" + host + selector, params=parameters, files=files, verify=False)
+    return r
 
 def encode_multipart_formdata(fields, files):
     """
